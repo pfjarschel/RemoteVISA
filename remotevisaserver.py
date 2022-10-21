@@ -10,6 +10,7 @@ class Server():
         self.hostname = "host"
         self.rm = None
         self.opendevs = {}
+        self.last_id = 0
 
         # Server functions
         self.comms_srv = {}
@@ -81,6 +82,7 @@ class Server():
         self.opendevs = None
         del self.opendevs
         self.opendevs = {}
+        self.last_id = 0
         
         self.rm = None
         del self.rm
@@ -166,14 +168,21 @@ class Server():
                 resource_name = args[0]
                 access_mode = int(args[1])
                 open_timeout = int(args[2])
-                next_id = f"{(len(self.opendevs) + 1)}"
+                next_id = f"{(self.last_id + 1)}"
                 for dev_tuple in self.opendevs.items():
                     if dev_tuple[1].resource_name == resource_name:
-                        print("Error: Device already open!")
-                        return dev_tuple[0]
+                        print("Device already open!")
+                        to = self.opendevs[dev_tuple[0]].timeout
+                        rt = self.opendevs[dev_tuple[0]].read_termination
+                        wt = self.opendevs[dev_tuple[0]].write_termination
+                        return f"{dev_tuple[0]} {to} -{rt}- -{wt}-"
                 
                 self.opendevs[next_id] = self.rm.open_resource(resource_name, access_mode, open_timeout)
-                return f"{next_id} {self.opendevs[next_id].timeout} -{self.opendevs[next_id].read_termination}- -{self.opendevs[next_id].write_termination}-"
+                self.last_id = int(next_id)
+                to = self.opendevs[next_id].timeout
+                rt = self.opendevs[next_id].read_termination
+                wt = self.opendevs[next_id].write_termination
+                return f"{next_id} {to} -{rt}- -{wt}-"
             except:
                 return f"Error opening device {resource_name}"
         else:
@@ -199,14 +208,21 @@ class Server():
         if len(args) > 0:
             try:
                 resource_name = args[0]
-                next_id = f"{(len(self.opendevs) + 1)}"
+                next_id = f"{(self.last_id + 1)}"
                 for dev_tuple in self.opendevs.items():
                     if dev_tuple[1].resource_name == resource_name:
-                        print("Error: Device already open!")
-                        return dev_tuple[0]
+                        print("Device already open!")
+                        to = self.opendevs[dev_tuple[0]].timeout
+                        rt = self.opendevs[dev_tuple[0]].read_termination
+                        wt = self.opendevs[dev_tuple[0]].write_termination
+                        return f"{dev_tuple[0]} {to} -{rt}- -{wt}-"
                 
                 self.opendevs[next_id] = self.rm.open_resource(resource_name)
-                return f"{next_id}"
+                self.last_id = int(next_id)
+                to = self.opendevs[next_id].timeout
+                rt = self.opendevs[next_id].read_termination
+                wt = self.opendevs[next_id].write_termination
+                return f"{next_id} {to} -{rt}- -{wt}-"
             except:
                 return f"Error opening device {resource_name}"
         else:
@@ -230,7 +246,7 @@ class Server():
         if len(args) > 1:
             try:
                 dev_id = args[0]
-                comm = args[1]
+                comm = " ".join(args[1:])
                 for dev_tuple in self.opendevs.items():
                     if dev_tuple[0] == dev_id:
                         dev_tuple[1].write(comm)

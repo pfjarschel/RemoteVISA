@@ -29,9 +29,9 @@ class CommsManager():
         return self.commsOK
 
     def CloseCommunications(self):
-        self.commsOK = False
         try:
             self.s.close()
+            self.commsOK = False
         except:
             print("Error closing the connection. Maybe it was already down?")
 
