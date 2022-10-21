@@ -1,4 +1,5 @@
 import socket as sck
+import threading
 import pyvisa as visa
 
 
@@ -14,8 +15,6 @@ class Server():
 
         # Server functions
         self.comms_srv = {}
-        self.comms_srv["close"] = self.Close
-        self.comms_srv["restart"] = self.Restart
         self.comms_srv["visarst"] = self.ResetVisa
 
         # Resource manager functions
@@ -50,26 +49,6 @@ class Server():
         self.listen_addr = listen_ip
         self.listen_port = port
         print(f"Server initialized on host '{self.hostname}'. IP for connection is {self.conn_ip}. Listening on port {self.listen_port}...")
-
-        return True
-
-    def Close(self, args):
-        self.s.close()
-        self.s = None
-        del self.s
-
-        return False
-
-    def Restart(self, args):
-        listen_ip="0.0.0.0"
-        port=8080
-        if args:
-            if len(args) > 1:
-                listen_ip = args[0]
-                port = args[1]
-            
-        self.Close([])
-        self.Start()
 
         return True
 
@@ -326,17 +305,23 @@ class Server():
             return "Error: Missing arguments"
 
 
-server = Server()
+def client_loop(conn, addr):
+    while True:
+        try:
+            resp = server.Receive(conn, addr)
+            if (not resp) or (resp is None):
+                break
+        except:
+            conn.close()
+            del conn
+            print(f"Error communicating with client {addr}. Connection closed.")
 
+
+server = Server()
 server.ResetVisa([])
 server.Start()
-keep_alive = True
 
-while keep_alive:
+while True:
     conn, addr = server.Listen()
-    while True:
-        resp = server.Receive(conn, addr)
-        if resp is None:
-            break
-        else:
-            keep_alive = resp
+    threading.Thread(target=client_loop, args=(conn, addr)).start()
+    

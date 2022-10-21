@@ -39,12 +39,6 @@ class CommsManager():
         self.CloseCommunications()
         return self.StartCommunications(ip, port)
 
-    def RestartServer(self):
-        self.remote_write("srv restart")
-
-    def CloseServer(self):
-        self.remote_write("srv close")
-
     def ResetVisa(self):
         self.remote_write("srv visarst")
 
