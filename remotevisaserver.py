@@ -1,5 +1,6 @@
 import socket as sck
 import threading
+import ctypes
 import pyvisa as visa
 
 
@@ -33,6 +34,10 @@ class Server():
         self.comms_rc["timeout"] = self.rc_timeout
         self.comms_rc["read_termination"] = self.rc_read_termination
         self.comms_rc["write_termination"] = self.rc_write_termination
+
+        # Binary resource
+        self.comms_rcb = {}
+        self.comms_rcb["read_binary_values"] = self.rcb_read_binary_values
 
     
     def Start(self, listen_ip="0.0.0.0", port=8080):
@@ -94,7 +99,7 @@ class Server():
                 else:
                     resp = self.comms_rm[comm[1]]([])
                 resp = f"{resp}"
-                print(f"Sending response: {resp}")
+                print(f"Sending response: {resp}"[:100])
                 conn.sendall(resp.encode("Latin1"))
             else:
                 resp = "Error: Command not understood."
@@ -106,8 +111,19 @@ class Server():
                 else:
                     resp = self.comms_rc[comm[1]]([])
                 resp = f"{resp}"
-                print(f"Sending response: {resp}")
+                print(f"Sending response: {resp}"[:100])
                 conn.sendall(resp.encode("Latin1"))
+            else:
+                resp = "Error: Command not understood."
+        elif comm[0] == "rcb":
+            if comm[1] in self.comms_rcb:
+                print(f"Valid command received: {comm}")
+                if len(comm) > 2:
+                    resp = self.comms_rcb[comm[1]](comm[2:])
+                else:
+                    resp = self.comms_rcb[comm[1]]([])
+                print(f"Sending response: {resp}"[:100])
+                conn.sendall(resp)
             else:
                 resp = "Error: Command not understood."
         elif comm[0] == "srv":
@@ -118,7 +134,7 @@ class Server():
                 else:
                     resp = self.comms_srv[comm[1]]([])
                 resp = f"{resp}"
-                print(f"Sending response: {resp}")
+                print(f"Sending response: {resp}"[:100])
                 conn.sendall(resp.encode("Latin1"))
             else:
                 resp = "Error: Command not understood."
@@ -250,6 +266,24 @@ class Server():
         else:
             return "Error: Missing arguments"
 
+    def rcb_read_binary_values(self, args):
+        if len(args) > 0:
+            try:
+                dev_id = args[0]
+                for dev_tuple in self.opendevs.items():
+                    if dev_tuple[0] == dev_id:
+                        chunk_size = None
+                        if args[6] != "None":
+                            chunk_size = int(args[6])
+                        resp = dev_tuple[1].read_binary_values(datatype='B', is_big_endian=bool(args[2]), container=bytes, 
+                               header_fmt=args[3], expect_termination=bool(args[4]), data_points=int(args[5]), chunk_size=chunk_size)
+                        return resp
+                return "Error: Device not found."
+            except:
+                return "Error reading from device."
+        else:
+            return "Error: Missing arguments"
+
     def rc_query(self, args):
         if len(args) > 1:
             wresp = self.rc_write(args)
@@ -313,9 +347,8 @@ def client_loop(conn, addr):
                 break
         except:
             conn.close()
-            del conn
             print(f"Error communicating with client {addr}. Connection closed.")
-
+            break
 
 server = Server()
 server.ResetVisa([])

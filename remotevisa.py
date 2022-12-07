@@ -1,5 +1,6 @@
 import socket as sck
 import pyvisa.constants
+import pyvisa.util
 import time
 
 
@@ -59,12 +60,14 @@ class CommsManager():
             print("Communications are down. Try (re)starting the communications and/or the server.")
             return False
 
-    def remote_read(self, length=1048576):
+    def remote_read_binary_values(self, command, length=1048576):
         if self.commsOK:
             try:
-                resp = self.s.recv(length).decode("Latin1")
+                self.s.sendall(command.encode('Latin1'))
+                resp = self.s.recv(length)
                 if resp:
-                    if ("Error" in resp) or ("error" in resp): print(resp)
+                    resp_l1 = resp.decode("Latin1")
+                    if ("Error" in resp_l1) or ("error" in resp_l1): print(resp_l1)
                     return resp
                 else:
                     return False
@@ -171,8 +174,19 @@ class Resource():
     def read(self, length=1048576):
         return commsMan.remote_query(f"rc read {self.rem_id}", length)
 
+    def read_binary_values(self, datatype='f', is_big_endian=False, header_fmt='ieee', expect_termination=True, data_points=-1, chunk_size=None):
+        command = f"rc read_binary_values {self.rem_id} {datatype} {is_big_endian} {header_fmt} {expect_termination} {data_points} {chunk_size}"
+        return commsMan.remote_read_binary_values(command)
+
     def query(self, command, length=1048576):
         return commsMan.remote_query(f"rc query {self.rem_id} {command}", length)
+
+    def query_binary_values(self, command, datatype='f', is_big_endian=False, header_fmt='ieee', expect_termination=True, data_points=-1, chunk_size=None):
+        commsMan.remote_write(f"rc write {self.rem_id} {command}")
+        read_command = f"rcb read_binary_values {self.rem_id} {datatype} {is_big_endian} {header_fmt} {expect_termination} {data_points} {chunk_size}"
+        binary_resp = commsMan.remote_read_binary_values(read_command)
+        resp = pyvisa.util.from_binary_block(binary_resp, offset=0, datatype=datatype, is_big_endian=is_big_endian)
+        return resp
     
     ## Serial support ##
     # TODO
