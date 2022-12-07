@@ -1,8 +1,9 @@
 import socket as sck
 import pyvisa.constants
 import pyvisa.util
-import time
 
+
+commsMan = None
 
 class CommsManager():
     def __init__(self):
@@ -94,8 +95,6 @@ class CommsManager():
         else:
             print("Communications are down. Try (re)starting the communications and/or the server.")
             return False
-
-commsMan = CommsManager()
 
 class ResourceManager():
     def __init__(self):
