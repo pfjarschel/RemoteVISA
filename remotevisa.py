@@ -82,7 +82,7 @@ class CommsManager():
         if self.commsOK:
             try:
                 self.s.sendall(command.encode('Latin1'))
-                resp = self.s.recv(length).decode("Latin1")
+                resp = self.s.recv(length).decode("Latin1").rstrip()
                 if resp:
                     if ("Error" in resp) or ("error" in resp): print(resp)
                     return resp
