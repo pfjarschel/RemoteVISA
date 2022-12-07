@@ -1,5 +1,6 @@
 import remotevisa
 
+remotevisa.commsMan = remotevisa.CommsManager()
 remotevisa.commsMan.StartCommunications("143.106.153.67", 8080)
 # remotevisa.commsMan.ResetVisa()
 
@@ -17,6 +18,5 @@ print(dev1.query("*IDN?"))
 
 dev0.close()
 dev1.close()
-
 
 remotevisa.commsMan.CloseCommunications()

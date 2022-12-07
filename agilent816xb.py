@@ -1,11 +1,8 @@
 # -*- coding: utf-8 -*-
 
-# import pyvisa as visa
-import remotevisa as visa  # This replaces import pyvisa as visa. That's it! (For most cases)
-import numpy as np
-
 class Agilent816xb:
     # definitions
+    remote = False
     gpib = True
     eth = False
     usb = False
@@ -14,57 +11,69 @@ class Agilent816xb:
     port = 10001
     visarm = None
     visaOK = False
-    laser = None
-    laserOK = False
-    laserID = ""
+    dev = None
+    devOK = False
+    devID = ""
 
     # main functions
-    def __init__(self):
+    def __init__(self, remote=False, rem_comm_man=None):
+        # This block is the only change needed to implement remote VISA support!
+        self.remote = remote
+        if self.remote:
+            import remotevisa as visa
+            visa.commsMan = rem_comm_man
+            if rem_comm_man == None:
+                print("Error: Remote is set to True, but no communication manager given! Create and start communications" + 
+                      "with commsMan = remotevisa.CommsManager() and initialize communications." + 
+                      "Then, create this object with it as argument.")
+        else:
+            import pyvisa as visa
+
         try:
             self.visarm = visa.ResourceManager()
             self.visaOK = True
         except:
-            print("Error creating VISA Resource Manager! Is the GPIB Card connected?")
+            print("Error creating VISA Resource Manager! Are the VISA libraries installed?")
 
-            pass
         if not self.visaOK:
             try:
                 self.visarm = visa.ResourceManager('@py')
                 self.visaOK = True
             except:
-                print("Error creating VISA Resource Manager! Is the GPIB Card connected?")
-                pass
+                print("Error creating VISA Resource Manager! Are the VISA libraries installed?")
 
     def __del__(self):
-        self.closelaser()
+        self.close()
         return 0
 
     # laser functions
-
-    def connectlaser(self, isgpib=False, address=17, iseth=True, ethip="143.106.153.62", ethport=10001):
+    def connect(self, isgpib=True, address=17, iseth=False, ethip="192.168.1.2", ethport=10001, isusb=False):
         if self.visaOK:
             self.gpib = isgpib
             self.gpibAddr = address
             self.eth = iseth
             self.ip = ethip
             self.port = ethport
+            self.usb = isusb
             try:
                 if self.gpib:
-                    lasername = "GPIB0::" + str(self.gpibAddr) + "::INSTR"
-                    self.laser = self.visarm.open_resource(lasername)
+                    name = "GPIB0::" + str(self.gpibAddr) + "::INSTR"
+                    self.dev = self.visarm.open_resource(name)
                 elif self.eth:
-                    osaname = "TCPIP0::" + self.ip + "::INSTR"
-                    self.laser = self.visarm.open_resource(osaname, read_termination="\r\n", timeout=5000)
-                if "816" in self.laser.query("*IDN?"):
-                    self.laserOK = True
-                    self.laserID = self.laser.query("*IDN?")
+                    name = "TCPIP0::" + self.ip + "::INSTR"
+                    self.dev = self.visarm.open_resource(name, read_termination="\r\n", timeout=5000)
+                
+                self.devID = self.dev.query("*IDN?")
+                if "816" in self.devID:
+                    self.devOK = True
+                    
                 else:
-                    print("Error opening lasererator! Is it connected?")
+                    print("Error opening device! Is it connected?")
             except:
-                print("Error opening lasererator! Is it connected?")
+                print("Error opening device! Is it connected?")
                 pass
 
-    def initlaser(self):
+    def init(self):
         return 0
 
     def enableAll(self):
@@ -75,37 +84,37 @@ class Agilent816xb:
         for i in range(0, 5):
              self.setState(i, False)
 
-    def closelaser(self):
-        if self.laserOK:
-            self.laserOK = False
-            self.laser.close()
+    def close(self):
+        if self.devOK:
+            self.devOK = False
+            self.dev.close()
 
     def getWL(self, slot):
-        if self.laserOK:
-            resp = self.laser.query(f":sour{slot}:wav?")
+        if self.devOK:
+            resp = self.dev.query(f":sour{slot}:wav?")
             wl = float(resp)*1e9
             return wl
         else:
             return float(0.0)
 
     def setWL(self, slot, wl):
-        if self.laserOK:
-            self.laser.write(f"sour{slot}:wav {wl*1e-9}")
+        if self.devOK:
+            self.dev.write(f"sour{slot}:wav {wl*1e-9}")
 
     def getPwr(self, slot):
-        if self.laserOK:
-            pwr = float(self.laser.query(f":sour{slot}:pow?"))
+        if self.devOK:
+            pwr = float(self.dev.query(f":sour{slot}:pow?"))
             return pwr
         else:
             return -99.99
 
     def setPwr(self, slot, pwr):
-        if self.laserOK:
-            self.laser.write(f":sour{slot}:pow {pwr}")
+        if self.devOK:
+            self.dev.write(f":sour{slot}:pow {pwr}")
 
     def getState(self, slot):
-        if self.laserOK:
-            resp = self.laser.query(f":sour{slot}:pow:stat?")
+        if self.devOK:
+            resp = self.dev.query(f":sour{slot}:pow:stat?")
             if "0" in resp:
                 return False
             else:
@@ -114,28 +123,28 @@ class Agilent816xb:
             return False
 
     def setState(self, slot, onoff):
-        if self.laserOK:
+        if self.devOK:
             if onoff:
-                self.laser.write(f":sour{slot}:pow:stat 1")
+                self.dev.write(f":sour{slot}:pow:stat 1")
             else:
-                self.laser.write(f":sour{slot}:pow:stat 0")
+                self.dev.write(f":sour{slot}:pow:stat 0")
 
     def setSweep(self, slot, mode, start, stop, step, cycles, dwell, speed):
-        if self.laserOK:
+        if self.devOK:
             if mode != "CONT" and mode != "STEP":
                 mode = "CONT"
-            self.laser.write(f":sour{slot}:wav:swe:mode {mode}")
-            self.laser.write(f":sour{slot}:wav:swe:start {start}nm")
-            self.laser.write(f":sour{slot}:wav:swe:stop {stop}nm")
-            self.laser.write(f":sour{slot}:wav:swe:step {step}nm")
-            self.laser.write(f":sour{slot}:wav:swe:cycl {cycles}")
-            self.laser.write(f":sour{slot}:wav:swe:dwel {dwell}ms")
-            self.laser.write(f":sour{slot}:wav:swe:spe {speed}nm/s")
+            self.dev.write(f":sour{slot}:wav:swe:mode {mode}")
+            self.dev.write(f":sour{slot}:wav:swe:start {start}nm")
+            self.dev.write(f":sour{slot}:wav:swe:stop {stop}nm")
+            self.dev.write(f":sour{slot}:wav:swe:step {step}nm")
+            self.dev.write(f":sour{slot}:wav:swe:cycl {cycles}")
+            self.dev.write(f":sour{slot}:wav:swe:dwel {dwell}ms")
+            self.dev.write(f":sour{slot}:wav:swe:spe {speed}nm/s")
 
     def setSweepState(self, slot, state):
-        if self.laserOK:
+        if self.devOK:
             options = ["Stop", "Start", "Pause (Stepped)", "Continue (Stepped)"]
-            self.laser.write(f":sour{slot}:wav:swe:stat {options.index(state)}")
+            self.dev.write(f":sour{slot}:wav:swe:stat {options.index(state)}")
 
     def setOutputTrigger(self, slot, state, mode="SWST"):
         """
@@ -149,9 +158,9 @@ class Agilent816xb:
 
         "SWST" means set the trigger for when the sweep starts
         """
-        if self.laserOK:
-            self.laser.write(f":trig:conf {state}")
-            self.laser.write(f":trig{slot}:outp {mode}")
+        if self.devOK:
+            self.dev.write(f":trig:conf {state}")
+            self.dev.write(f":trig{slot}:outp {mode}")
 
     def SetWavelengthLocking(self, slot, state):
         """
@@ -161,7 +170,7 @@ class Agilent816xb:
         0 - off
         1 - wavelength locking
         """
-        if self.laserOK:
-            self.laser.write(f":sour{slot}:am:stat {state}")
+        if self.devOK:
+            self.dev.write(f":sour{slot}:am:stat {state}")
 
 
