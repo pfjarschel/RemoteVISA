@@ -275,8 +275,8 @@ class Server():
                         chunk_size = None
                         if args[6] != "None":
                             chunk_size = int(args[6])
-                        resp = dev_tuple[1].read_binary_values(datatype='B', is_big_endian=bool(args[2]), container=bytes, 
-                               header_fmt=args[3], expect_termination=bool(args[4]), data_points=int(args[5]), chunk_size=chunk_size)
+                        resp = dev_tuple[1].read_binary_values(datatype='B', container=bytes, header_fmt=args[3],
+                               expect_termination=bool(args[4]), data_points=int(args[5]), chunk_size=chunk_size)
                         return resp
                 return "Error: Device not found."
             except:
