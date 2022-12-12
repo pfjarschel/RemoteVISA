@@ -34,6 +34,7 @@ class Server():
         self.comms_rc["timeout"] = self.rc_timeout
         self.comms_rc["read_termination"] = self.rc_read_termination
         self.comms_rc["write_termination"] = self.rc_write_termination
+        self.comms_rc["read_stb"] = self.rc_read_stb
 
         # Binary resource
         self.comms_rcb = {}
@@ -332,6 +333,20 @@ class Server():
                     if dev_tuple[0] == dev_id:
                         dev_tuple[1].write_termination = term
                         return "Ok."
+                return "Error: Device not found."
+            except:
+                return "Error setting device property."
+        else:
+            return "Error: Missing arguments"
+
+    def rc_read_stb(self, args):
+        if len(args) > 0:
+            try:
+                dev_id = args[0]
+                for dev_tuple in self.opendevs.items():
+                    if dev_tuple[0] == dev_id:
+                        resp = dev_tuple[1].read_stb()
+                        return resp
                 return "Error: Device not found."
             except:
                 return "Error setting device property."

@@ -186,6 +186,9 @@ class Resource():
         binary_resp = commsMan.remote_read_binary_values(read_command)
         resp = pyvisa.util.from_binary_block(binary_resp, offset=0, datatype=datatype, is_big_endian=is_big_endian)
         return resp
+
+    def read_stb(self):
+        return commsMan.remote_query(f"rc read_stb {self.rem_id}", 16)
     
     ## Serial support ##
     # TODO
